@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>离线铁路中转比价</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo">铁</span>
+      <div>
+        <h1>铁路中转比价</h1>
+        <p class="sub">离线查询 · 高性价比换乘方案</p>
+      </div>
+    </div>
+
+    <form class="searchbar" id="form" autocomplete="off">
+      <div class="field">
+        <label for="from">起点</label>
+        <input id="from" name="from" placeholder="城市或车站，如 武汉" list="stationList" required>
+      </div>
+      <div class="swap" id="swap" title="交换起终点">⇄</div>
+      <div class="field">
+        <label for="to">终点</label>
+        <input id="to" name="to" placeholder="城市或车站，如 重庆" list="stationList" required>
+      </div>
+      <div class="field compact">
+        <label for="time">最早出发</label>
+        <input id="time" name="time" type="time" value="">
+      </div>
+      <div class="field compact">
+        <label for="seat">席别</label>
+        <select id="seat" name="seat"></select>
+      </div>
+      <button class="primary" id="go" type="submit">查询</button>
+    </form>
+    <datalist id="stationList"></datalist>
+  </div>
+</header>
+
+<nav class="modetabs wrap">
+  <button class="mode active" data-mode="fare" id="modeFare">🚄 中转比价</button>
+  <button class="mode" data-mode="travel" id="modeTravel">🧳 旅行模式</button>
+</nav>
+
+<section class="wrap travel-panel" id="travelPanel" hidden>
+  <form class="searchbar travel-form" id="travelForm" autocomplete="off">
+    <div class="field">
+      <label for="tFrom">出发地</label>
+      <input id="tFrom" placeholder="城市或车站，如 武汉" list="stationList" required>
+    </div>
+    <div class="field compact">
+      <label for="tDays">返程间隔(天，0=当天往返)</label>
+      <input id="tDays" type="number" min="0" max="30" value="0">
+    </div>
+    <div class="field compact">
+      <label for="tLimit">展示条数</label>
+      <input id="tLimit" type="number" min="10" max="200" value="50">
+    </div>
+    <label class="check" style="align-self:flex-end;margin-bottom:6px">
+      <input id="tHS" type="checkbox">绿皮 · 仅硬卧
+    </label>
+    <button class="primary" id="tGo" type="submit">搜索全国</button>
+  </form>
+  <section id="tStatus" class="status">输入出发地后点击「搜索全国」，将按性价比展示全国往返方案</section>
+  <div class="ds-bar" id="tBar" hidden><div id="tBarFill"></div></div>
+  <section class="results" id="tResults"></section>
+  <p class="hint" style="padding:0 4px">往返总价 = 去程 + 回程（国铁上下行同里程同价）；性价比分 = 平均速度 ÷ 往返每公里单价，数值越大代表「又快又便宜」；排序为性价比降序，同分按往返总价升序。仅展示已抓取 12306 真实票价的目的地。</p>
+</section>
+
+<main class="wrap" id="fareMain">
+
+  <section class="meta" id="meta" hidden>
+    <div class="chips" id="metaChips"></div>
+  </section>
+
+  <section class="toolbar" id="toolbar" hidden>
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="all">全部</button>
+      <button class="tab" data-tab="0">直达</button>
+      <button class="tab" data-tab="1">1 次中转</button>
+      <button class="tab" data-tab="2">2 次中转</button>
+      <button class="tab" data-tab="3">3 次中转</button>
+    </div>
+    <div class="filters">
+      <label class="mini">
+        排序
+        <select id="sort">
+          <option value="score">综合性价比</option>
+          <option value="price">总价最低</option>
+          <option value="time">耗时最短</option>
+          <option value="depart">出发最早</option>
+          <option value="transfer">中转最少</option>
+        </select>
+      </label>
+      <label class="mini">
+        席别
+        <select id="fSeat"><option value="">不限</option></select>
+      </label>
+      <label class="mini">
+        最高价
+        <input id="fPrice" type="number" min="0" step="10" placeholder="不限">
+      </label>
+      <label class="mini">
+        最长耗时(小时)
+        <input id="fTime" type="number" min="0" step="1" placeholder="不限">
+      </label>
+      <label class="check">
+        <input id="fCheap" type="checkbox"> 仅看高性价比
+      </label>
+      <button class="ghost" id="reset">重置筛选</button>
+    </div>
+  </section>
+
+  <section id="status" class="status">输入起点与终点后点击「查询」</section>
+  <section id="results" class="results"></section>
+</main>
+
+<footer class="footer wrap">
+  <p id="disclaimer">本工具仅为路线规划参考，票价为国铁基准公布价；动车组存在市场化浮动折扣，临客/调图可能变动，真实票价、余票请前往12306官方核验</p>
+  <p class="hint" id="techHint"></p>
+
+  <section class="datasync" id="datasync">
+    <div class="ds-head">
+      <span id="dsSummary">票价数据：检查中...</span>
+      <div class="ds-btns">
+        <button class="ghost" id="dsStart">开始抓取 12306 真实票价</button>
+        <button class="ghost warn" id="dsStop" hidden>停止抓取</button>
+        <button class="ghost" id="dsImport" title="把已抓取的票价导入本地数据库并立即生效">导入已抓取数据</button>
+      </div>
+    </div>
+    <div class="ds-bar" id="dsBar" hidden><div id="dsBarFill"></div></div>
+    <div class="ds-detail" id="dsDetail"></div>
+  </section>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
